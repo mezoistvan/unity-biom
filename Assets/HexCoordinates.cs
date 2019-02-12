@@ -69,4 +69,11 @@ public struct HexCoordinates {
 		return new HexCoordinates(iX, iZ);
 	}
 
+	public static Vector3 ToPosition (HexCoordinates hexCoordinates, float y = 5) {
+		float hexCenterDistance = HexMetrics.outerRadius * 1.5f;
+		float pZ = hexCoordinates.Z * hexCenterDistance;
+		float pX = (pZ * 0.5f) + (hexCoordinates.X * hexCenterDistance) + (hexCenterDistance * 1.5f);
+		return new Vector3(pX, y, pZ);
+	}
+
 }

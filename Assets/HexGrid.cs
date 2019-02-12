@@ -5,8 +5,8 @@ using UnityEngine.UI;
 
 public class HexGrid : MonoBehaviour {
 
-	public int width = 6;
-	public int height = 6;
+	public int width = 60;
+	public int height = 60;
 
 	public HexCell cellPrefab;
 	public Text cellLabelPrefab;
@@ -14,6 +14,9 @@ public class HexGrid : MonoBehaviour {
 	HexCell[] cells;
 	Canvas gridCanvas;
 	HexMesh hexMesh;
+	GameObject attackSprite;
+	GameObject healthSprite;
+	GameObject reachSprite;
 	GameState gameState;
 
 	public Color defaultColor = Color.white;
@@ -22,6 +25,9 @@ public class HexGrid : MonoBehaviour {
 	void Awake () {
 		gridCanvas = GetComponentInChildren<Canvas>();
 		hexMesh = GetComponentInChildren<HexMesh>();
+		attackSprite = GameObject.Find("Attack");
+		healthSprite = GameObject.Find("Health");
+		reachSprite = GameObject.Find("Reach");
 		gameState = new GameState();
 		gameState.setup();
 
@@ -40,9 +46,9 @@ public class HexGrid : MonoBehaviour {
 
 	void CreateCell (int x, int z, int i) {
 		Vector3 position;
-		position.x = (x + z * 0.5f - z / 2)  * (HexMetrics.innerRadius * 2f);
+		position.x = (x + (z * 0.5f) - (z / 2)) * (HexMetrics.innerRadius * 2f);
 		position.y = 0f;
-		position.z = z * (HexMetrics.innerRadius * 1.5f);
+		position.z = z * HexMetrics.outerRadius * 1.5f;
 
 		HexCell cell = cells[i] = Instantiate<HexCell>(cellPrefab);
 		cell.transform.SetParent(transform, false);
@@ -51,10 +57,13 @@ public class HexGrid : MonoBehaviour {
 
 		if (gameState.levelStarter.attackStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.ATTACK;
+			attackSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.healthStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.HEALTH;
+			healthSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.reachStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.REACH;
+			reachSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.playerStarter.Contains (new HexCoordinates (x, z))) {
 			cell.playerCellStatus = PlayerCellStatus.PLAYER;
 		} else {
@@ -84,17 +93,7 @@ public class HexGrid : MonoBehaviour {
 		label.rectTransform.SetParent(gridCanvas.transform, false);
 		label.rectTransform.anchoredPosition =
 			new Vector2(position.x, position.z);
-		label.text = "";
-
-		if (cell.playerCellStatus == PlayerCellStatus.ATTACK) {
-			label.text = "\n" + gameState.levelStarter.attack.ToString();
-		}
-		if (cell.playerCellStatus == PlayerCellStatus.HEALTH) {
-			label.text = "\n" + gameState.levelStarter.health.ToString();
-		}
-		if (cell.playerCellStatus == PlayerCellStatus.REACH) {
-			label.text = "\n" + gameState.levelStarter.reach.ToString();
-		}
+		label.text = cell.coordinates.ToStringOnSeparateLines();
 	}
 
 	void Update () {
@@ -126,7 +125,7 @@ public class HexGrid : MonoBehaviour {
 	private static void DoHighlight(HexCell cell) {
 		if (cell.playerCellStatus != PlayerCellStatus.NOTHING) {
 			for (int i = 0; i < 6; i++) {
-				HexCell neighbor = cell.GetNeighbor((HexDirection) 	i);
+				HexCell neighbor = cell.GetNeighbor((HexDirection) i);
 
 				if ((neighbor != null) && (neighbor.playerCellStatus == PlayerCellStatus.NOTHING)) {
 					neighbor.color = Color.cyan;
@@ -150,10 +149,17 @@ public class HexGrid : MonoBehaviour {
 		int index = coordinates.X + coordinates.Z * width + coordinates.Z / 2;
 		HexCell cell = cells[index];
 		if ((gameState.grownTilesThisTurn < gameState.levelStarter.reach) && (cell.playerCellStatus == PlayerCellStatus.NOTHING)) {
-			cell.color = touchedColor;
-			cell.playerCellStatus = PlayerCellStatus.PLAYER;
-			gameState.grownTilesThisTurn += 1;
-			HighlightNeighbors();
+			for (int i = 0; i < 6; i++) {
+				HexCell neighbor = cell.GetNeighbor((HexDirection) i);
+
+				if ((neighbor != null) && (neighbor.playerCellStatus != PlayerCellStatus.NOTHING)) {
+					cell.color = touchedColor;
+					cell.playerCellStatus = PlayerCellStatus.PLAYER;
+					gameState.grownTilesThisTurn += 1;
+					HighlightNeighbors();
+					break;
+				}
+			}
 		}
 		hexMesh.Triangulate(cells);
 	}
@@ -179,41 +185,26 @@ public class HexGrid : MonoBehaviour {
 			tX += playerCells[i].coordinates.X;
 			tZ += playerCells[i].coordinates.Z;
 		}
-		HexCoordinates centerCoordinates = new HexCoordinates(tX / playerCells.Length + 1, tZ / playerCells.Length + 1);
+		HexCoordinates centerCoordinates = new HexCoordinates((int)Math.Round((double)(tX / playerCells.Length), 0), (int)Math.Round((double)(tZ / playerCells.Length), 0));
 
 		List<HexCell> orderedPlayerCells = new List<HexCell>(playerCells);
-		// TODO: this function is shit
-		orderedPlayerCells.Sort((x, y) => (Math.Abs(Math.Abs(x.coordinates.X - centerCoordinates.X) - Math.Abs(y.coordinates.X - centerCoordinates.X))) - Math.Abs(Math.Abs(x.coordinates.Y - centerCoordinates.Y) - Math.Abs(y.coordinates.Y - centerCoordinates.Y)));
+		orderedPlayerCells.Sort((a, b) => Utils.AbsDistanceTimes100(a.coordinates, centerCoordinates) - Utils.AbsDistanceTimes100(b.coordinates, centerCoordinates));
 
 		foreach (HexCell cell in cells) {
 			if (cell.playerCellStatus != PlayerCellStatus.NOTHING) {
 				if (cell.coordinates.ToString() == orderedPlayerCells[0].coordinates.ToString()) {
 					cell.playerCellStatus = PlayerCellStatus.ATTACK;
+					attackSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 				} else if (cell.coordinates.ToString() == orderedPlayerCells[1].coordinates.ToString()) {
 					cell.playerCellStatus = PlayerCellStatus.HEALTH;
+					healthSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 				} else if (cell.coordinates.ToString() == orderedPlayerCells[2].coordinates.ToString()) {
 					cell.playerCellStatus = PlayerCellStatus.REACH;
+					reachSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 				} else {
 					cell.playerCellStatus = PlayerCellStatus.PLAYER;
 				}
 				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
-
-				// TODO remove the old and add the new
-				Text label = Instantiate<Text>(cellLabelPrefab);
-				label.rectTransform.SetParent(gridCanvas.transform, false);
-				label.rectTransform.anchoredPosition =
-					new Vector2(cell.coordinates.X, cell.coordinates.Z);
-				label.text = "";
-
-				if (cell.playerCellStatus == PlayerCellStatus.ATTACK) {
-					label.text = "\n" + gameState.levelStarter.attack.ToString();
-				}
-				if (cell.playerCellStatus == PlayerCellStatus.HEALTH) {
-					label.text = "\n" + gameState.levelStarter.health.ToString();
-				}
-				if (cell.playerCellStatus == PlayerCellStatus.REACH) {
-					label.text = "\n" + gameState.levelStarter.reach.ToString();
-				}
 			}
 		}
 

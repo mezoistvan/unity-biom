@@ -20,13 +20,13 @@ public class GameState {
 	public void setup() {
 		levelStarter = new StarterState();
 		levelStarter.playerStarter = new List<HexCoordinates>();
-		levelStarter.playerStarter.Add(new HexCoordinates(1, 1));
-		levelStarter.playerStarter.Add(new HexCoordinates(2, 1));
-		levelStarter.playerStarter.Add(new HexCoordinates(2, 2));
+		levelStarter.playerStarter.Add(new HexCoordinates(8, 8));
+		levelStarter.playerStarter.Add(new HexCoordinates(9, 8));
+		levelStarter.playerStarter.Add(new HexCoordinates(9, 9));
 
-		levelStarter.healthStarter = new HexCoordinates(1, 1);
-		levelStarter.attackStarter = new HexCoordinates(2, 2);
-		levelStarter.reachStarter = new HexCoordinates(2, 1);
+		levelStarter.healthStarter = new HexCoordinates(8, 8);
+		levelStarter.attackStarter = new HexCoordinates(9, 9);
+		levelStarter.reachStarter = new HexCoordinates(9, 8);
 
 		levelStarter.health = 9;
 		levelStarter.attack = 7;
