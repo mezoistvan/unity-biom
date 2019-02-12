@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -171,7 +172,52 @@ public class HexGrid : MonoBehaviour {
 	}
 
 	void RearrangeOrgans() {
-		
+		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
+		int tX = 0;
+		int tZ = 0;
+		for (int i = 0; i < playerCells.Length; i++) {
+			tX += playerCells[i].coordinates.X;
+			tZ += playerCells[i].coordinates.Z;
+		}
+		HexCoordinates centerCoordinates = new HexCoordinates(tX / playerCells.Length + 1, tZ / playerCells.Length + 1);
+
+		List<HexCell> orderedPlayerCells = new List<HexCell>(playerCells);
+		// TODO: this function is shit
+		orderedPlayerCells.Sort((x, y) => (Math.Abs(Math.Abs(x.coordinates.X - centerCoordinates.X) - Math.Abs(y.coordinates.X - centerCoordinates.X))) - Math.Abs(Math.Abs(x.coordinates.Y - centerCoordinates.Y) - Math.Abs(y.coordinates.Y - centerCoordinates.Y)));
+
+		foreach (HexCell cell in cells) {
+			if (cell.playerCellStatus != PlayerCellStatus.NOTHING) {
+				if (cell.coordinates.ToString() == orderedPlayerCells[0].coordinates.ToString()) {
+					cell.playerCellStatus = PlayerCellStatus.ATTACK;
+				} else if (cell.coordinates.ToString() == orderedPlayerCells[1].coordinates.ToString()) {
+					cell.playerCellStatus = PlayerCellStatus.HEALTH;
+				} else if (cell.coordinates.ToString() == orderedPlayerCells[2].coordinates.ToString()) {
+					cell.playerCellStatus = PlayerCellStatus.REACH;
+				} else {
+					cell.playerCellStatus = PlayerCellStatus.PLAYER;
+				}
+				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+
+				// TODO remove the old and add the new
+				Text label = Instantiate<Text>(cellLabelPrefab);
+				label.rectTransform.SetParent(gridCanvas.transform, false);
+				label.rectTransform.anchoredPosition =
+					new Vector2(cell.coordinates.X, cell.coordinates.Z);
+				label.text = "";
+
+				if (cell.playerCellStatus == PlayerCellStatus.ATTACK) {
+					label.text = "\n" + gameState.levelStarter.attack.ToString();
+				}
+				if (cell.playerCellStatus == PlayerCellStatus.HEALTH) {
+					label.text = "\n" + gameState.levelStarter.health.ToString();
+				}
+				if (cell.playerCellStatus == PlayerCellStatus.REACH) {
+					label.text = "\n" + gameState.levelStarter.reach.ToString();
+				}
+			}
+		}
+
+		hexMesh.Triangulate(cells);
 	}
 
 	void UnHighlightNeighbors() {
