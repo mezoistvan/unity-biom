@@ -10,6 +10,7 @@ public struct StarterState {
 	public int health;
 	public int attack;
 	public int reach;
+	public int enemyPower;
 
 	public List<HexCoordinates> enemyStarter;
 }
@@ -43,16 +44,24 @@ public class GameState {
 
 		levelStarter.enemyStarter = new List<HexCoordinates>();
 		levelStarter.enemyStarter.Add(new HexCoordinates(12, 12));
+		levelStarter.enemyPower = 3;
 	}
 
-	public static Color ColorFromStatus(PlayerCellStatus state) {
-		if (state == PlayerCellStatus.PLAYER) {
+	public static Color ColorFromStatus(PlayerCellStatus player, EnemyCellStatus enemy = EnemyCellStatus.NOTHING) {
+		if (enemy != EnemyCellStatus.NOTHING) {
+			if (player != PlayerCellStatus.NOTHING) {
+				return Color.red;
+			}
+			return Color.yellow;
+		}
+
+		if (player == PlayerCellStatus.PLAYER) {
 			return Color.blue;
-		} else if (state == PlayerCellStatus.ATTACK) {
+		} else if (player == PlayerCellStatus.ATTACK) {
 			return Color.blue;
-		} else if (state == PlayerCellStatus.HEALTH) {
+		} else if (player == PlayerCellStatus.HEALTH) {
 			return Color.blue;
-		} else if (state == PlayerCellStatus.REACH) {
+		} else if (player == PlayerCellStatus.REACH) {
 			return Color.blue;
 		}
 		return Color.white;

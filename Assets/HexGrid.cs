@@ -18,6 +18,12 @@ public class HexGrid : MonoBehaviour {
 	GameObject healthSprite;
 	GameObject reachSprite;
 	GameObject enemySprite;
+
+	Text attackText;
+	Text healthText;
+	Text reachText;
+	Text enemyText;
+
 	GameState gameState;
 
 	public Color defaultColor = Color.white;
@@ -30,8 +36,16 @@ public class HexGrid : MonoBehaviour {
 		healthSprite = GameObject.Find("Health");
 		reachSprite = GameObject.Find("Reach");
 		enemySprite = GameObject.Find("Enemy");
+		attackText = GameObject.Find("AttackText").GetComponent<Text>();
+		healthText = GameObject.Find("HealthText").GetComponent<Text>();
+		reachText = GameObject.Find("ReachText").GetComponent<Text>();
+		enemyText = GameObject.Find("EnemyText").GetComponent<Text>();	
 		gameState = new GameState();
 		gameState.setup();
+		attackText.text = gameState.levelStarter.attack.ToString();
+		healthText.text = gameState.levelStarter.health.ToString();
+		reachText.text = gameState.levelStarter.reach.ToString();
+		enemyText.text = gameState.levelStarter.enemyPower.ToString();
 
 		cells = new HexCell[height * width];
 
@@ -80,7 +94,7 @@ public class HexGrid : MonoBehaviour {
 			cell.playerCellStatus = PlayerCellStatus.NOTHING;
 			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
 		}
-		cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+		cell.color = GameState.ColorFromStatus(cell.playerCellStatus, cell.enemyCellStatus);
 
 		if (x > 0) {
 			cell.SetNeighbor(HexDirection.W, cells[i - 1]);
@@ -113,23 +127,23 @@ public class HexGrid : MonoBehaviour {
 				gameState.turnStarted = true;
 				HighlightNeighbors();
 				HighlightFurthest(CellClicked());
-				hexMesh.Triangulate(cells);
+				RedrawBoard();
 			}
 		}
 
 		if (Input.GetMouseButton(0) && gameState.turnStarted) {
 			HandleInput();
 			HighlightFurthest(CellClicked());
-			hexMesh.Triangulate(cells);
-
+			RedrawBoard();
 		}
 
 		if (Input.GetMouseButtonUp(0) && gameState.turnStarted) {
+			DoFight();
 			gameState.turnStarted = false;
 			UnHighlightNeighbors();
 			gameState.grownTilesThisTurn = 0;
 			RearrangeOrgans();
-			hexMesh.Triangulate(cells);
+			RedrawBoard();
 		}
 	}
 
@@ -185,6 +199,7 @@ public class HexGrid : MonoBehaviour {
 		int index = coordinates.X + coordinates.Z * width + coordinates.Z / 2;
 		HexCell cell = cells[index];
 		if ((gameState.grownTilesThisTurn < gameState.levelStarter.reach) && (cell.playerCellStatus == PlayerCellStatus.NOTHING)) {
+			// doublecheck if its neighbor or not (rapid mouse movement could cause issues)
 			for (int i = 0; i < 6; i++) {
 				HexCell neighbor = cell.GetNeighbor((HexDirection) i);
 
@@ -193,8 +208,10 @@ public class HexGrid : MonoBehaviour {
 					cell.playerCellStatus = PlayerCellStatus.PLAYER;
 					gameState.grownTilesThisTurn += 1;
 					RemoveFurthestCell();
-					UnHighlightNeighbors();
-					HighlightNeighbors();
+
+					if (cell.enemyCellStatus != EnemyCellStatus.NOTHING) {
+						gameState.levelStarter.attack -= gameState.levelStarter.enemyPower;
+					}
 					break;
 				}
 			}
@@ -206,18 +223,19 @@ public class HexGrid : MonoBehaviour {
 		foreach (HexCell cell in playerCells) {
 			if (cell.isFurthest) {
 				cell.playerCellStatus = PlayerCellStatus.NOTHING;
-				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+				cell.color = GameState.ColorFromStatus(cell.playerCellStatus, cell.enemyCellStatus);
 			}
 		}
 		RemoveFurthestColor();
+		UnHighlightNeighbors();
 		HighlightNeighbors();
 		RearrangeOrgans();
 	}
 
 	void RemoveFurthestColor() {
-		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
+		HexCell[] playerCells = Array.FindAll(cells, c => (c.playerCellStatus != PlayerCellStatus.NOTHING) || (c.enemyCellStatus != EnemyCellStatus.NOTHING));
 		foreach (HexCell cell in playerCells) {
-			cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+			cell.color = GameState.ColorFromStatus(cell.playerCellStatus, cell.enemyCellStatus);
 		}
 	}
 
@@ -261,7 +279,32 @@ public class HexGrid : MonoBehaviour {
 				} else {
 					cell.playerCellStatus = PlayerCellStatus.PLAYER;
 				}
-				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+				cell.color = GameState.ColorFromStatus(cell.playerCellStatus, cell.enemyCellStatus);
+			}
+		}
+	}
+
+	private void RedrawBoard() {
+		hexMesh.Triangulate(cells);
+
+		attackText.text = gameState.levelStarter.attack.ToString();
+		healthText.text = gameState.levelStarter.health.ToString();
+		reachText.text = gameState.levelStarter.reach.ToString();
+		enemyText.text = gameState.levelStarter.enemyPower.ToString();
+	}
+
+	private void DoFight() {
+		HexCell[] fightingCells = Array.FindAll(cells, c => (c.playerCellStatus != PlayerCellStatus.NOTHING) && (c.enemyCellStatus != EnemyCellStatus.NOTHING));
+		foreach(HexCell cell in fightingCells) {
+			if (gameState.levelStarter.enemyPower != 0) {
+				gameState.levelStarter.enemyPower--;
+				gameState.levelStarter.attack++;
+
+				if (gameState.levelStarter.enemyPower == 0) {
+					cell.enemyCellStatus = EnemyCellStatus.NOTHING;
+					gameState.levelStarter.attack++;
+					Destroy(enemySprite);
+				}
 			}
 		}
 	}
