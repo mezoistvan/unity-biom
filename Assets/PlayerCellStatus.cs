@@ -7,3 +7,8 @@ public enum PlayerCellStatus {
 	ATTACK,
 	REACH
 }
+
+public enum EnemyCellStatus {
+	NOTHING,
+	ENEMY,
+}

@@ -17,6 +17,7 @@ public class HexGrid : MonoBehaviour {
 	GameObject attackSprite;
 	GameObject healthSprite;
 	GameObject reachSprite;
+	GameObject enemySprite;
 	GameState gameState;
 
 	public Color defaultColor = Color.white;
@@ -28,6 +29,7 @@ public class HexGrid : MonoBehaviour {
 		attackSprite = GameObject.Find("Attack");
 		healthSprite = GameObject.Find("Health");
 		reachSprite = GameObject.Find("Reach");
+		enemySprite = GameObject.Find("Enemy");
 		gameState = new GameState();
 		gameState.setup();
 
@@ -57,17 +59,26 @@ public class HexGrid : MonoBehaviour {
 
 		if (gameState.levelStarter.attackStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.ATTACK;
+			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
 			attackSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.healthStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.HEALTH;
+			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
 			healthSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.reachStarter.ToString () == new HexCoordinates (x, z).ToString ()) {
 			cell.playerCellStatus = PlayerCellStatus.REACH;
+			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
 			reachSprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else if (gameState.levelStarter.playerStarter.Contains (new HexCoordinates (x, z))) {
 			cell.playerCellStatus = PlayerCellStatus.PLAYER;
+			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
+		} else if (gameState.levelStarter.enemyStarter.Contains (new HexCoordinates (x, z))) {
+			cell.enemyCellStatus = EnemyCellStatus.ENEMY;
+			cell.playerCellStatus = PlayerCellStatus.NOTHING;
+			enemySprite.transform.position = HexCoordinates.ToPosition(cell.coordinates);
 		} else {
 			cell.playerCellStatus = PlayerCellStatus.NOTHING;
+			cell.enemyCellStatus = EnemyCellStatus.NOTHING;
 		}
 		cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
 
@@ -93,7 +104,7 @@ public class HexGrid : MonoBehaviour {
 		label.rectTransform.SetParent(gridCanvas.transform, false);
 		label.rectTransform.anchoredPosition =
 			new Vector2(position.x, position.z);
-		label.text = cell.coordinates.ToStringOnSeparateLines();
+		// label.text = cell.coordinates.ToStringOnSeparateLines();
 	}
 
 	void Update () {
@@ -101,11 +112,16 @@ public class HexGrid : MonoBehaviour {
 			if (CellClicked().playerCellStatus != PlayerCellStatus.NOTHING) {
 				gameState.turnStarted = true;
 				HighlightNeighbors();
+				HighlightFurthest(CellClicked());
+				hexMesh.Triangulate(cells);
 			}
 		}
 
 		if (Input.GetMouseButton(0) && gameState.turnStarted) {
 			HandleInput();
+			HighlightFurthest(CellClicked());
+			hexMesh.Triangulate(cells);
+
 		}
 
 		if (Input.GetMouseButtonUp(0) && gameState.turnStarted) {
@@ -113,13 +129,13 @@ public class HexGrid : MonoBehaviour {
 			UnHighlightNeighbors();
 			gameState.grownTilesThisTurn = 0;
 			RearrangeOrgans();
+			hexMesh.Triangulate(cells);
 		}
 	}
 
 	void HighlightNeighbors() {
 		Action<HexCell> doHighlight = new Action<HexCell> (DoHighlight);
 		Array.ForEach (cells, doHighlight);
-		hexMesh.Triangulate(cells);
 	}
 
 	private static void DoHighlight(HexCell cell) {
@@ -132,6 +148,26 @@ public class HexGrid : MonoBehaviour {
 				}
 			}
 		}
+	}
+
+	void HighlightFurthest(HexCell sourceCell) {
+		if (gameState.grownTilesThisTurn >= gameState.levelStarter.reach) {
+			return;
+		}
+		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
+		int furthestDistance = 0;
+		HexCell furthestCell = null;
+		for (int i = 0; i < playerCells.Length; i++) {
+			playerCells[i].isFurthest = false;
+			int distance = playerCells[i].coordinates.DistanceTo(sourceCell.coordinates);
+			if (distance > furthestDistance) {
+				furthestDistance = distance;
+				furthestCell = playerCells[i];
+			}
+		}
+		furthestCell.isFurthest = true;
+		RemoveFurthestColor();
+		furthestCell.color = Color.grey;
 	}
 
 	void HandleInput () {
@@ -156,12 +192,33 @@ public class HexGrid : MonoBehaviour {
 					cell.color = touchedColor;
 					cell.playerCellStatus = PlayerCellStatus.PLAYER;
 					gameState.grownTilesThisTurn += 1;
+					RemoveFurthestCell();
+					UnHighlightNeighbors();
 					HighlightNeighbors();
 					break;
 				}
 			}
 		}
-		hexMesh.Triangulate(cells);
+	}
+
+	void RemoveFurthestCell() {
+		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
+		foreach (HexCell cell in playerCells) {
+			if (cell.isFurthest) {
+				cell.playerCellStatus = PlayerCellStatus.NOTHING;
+				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+			}
+		}
+		RemoveFurthestColor();
+		HighlightNeighbors();
+		RearrangeOrgans();
+	}
+
+	void RemoveFurthestColor() {
+		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
+		foreach (HexCell cell in playerCells) {
+			cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
+		}
 	}
 
 	HexCell CellClicked() {
@@ -207,8 +264,6 @@ public class HexGrid : MonoBehaviour {
 				cell.color = GameState.ColorFromStatus(cell.playerCellStatus);
 			}
 		}
-
-		hexMesh.Triangulate(cells);
 	}
 
 	void UnHighlightNeighbors() {
@@ -222,4 +277,11 @@ public class HexGrid : MonoBehaviour {
 			cell.color = Color.white;
 		}
 	}
+
+	public void FindDistancesTo (HexCell cell) {
+		for (int i = 0; i < cells.Length; i++) {
+			cells[i].Distance = cell.coordinates.DistanceTo(cells[i].coordinates);
+		}
+	}
+
 }
