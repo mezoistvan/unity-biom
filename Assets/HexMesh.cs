@@ -63,3 +63,4 @@ public class HexMesh : MonoBehaviour {
 		triangles.Add(vertexIndex + 2);
 	}
 }
+
