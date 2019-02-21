@@ -4,6 +4,13 @@
 /[Bb]uild/
 [Bb]uilds/
 Assets/AssetStoreTools*
+# im not 100% in this one
+# Assets/
+Assets/FMODStudioCache.asset
+Assets/StreamingAssets/*.bank
+fmod.log
+fmod_editor.log
+.cache/
 
 # Visual Studio cache directory
 .vs/

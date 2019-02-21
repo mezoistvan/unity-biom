@@ -29,6 +29,9 @@ public class HexGrid : MonoBehaviour {
 	public Color defaultColor = Color.white;
 	public Color touchedColor = Color.blue;
 
+	ScriptUsageTimeline musicPlayerScriptUsageTimeline;
+	private int previousBeat = 0;
+
 	void Awake () {
 		gridCanvas = GetComponentInChildren<Canvas>();
 		hexMesh = GetComponentInChildren<HexMesh>();
@@ -39,7 +42,7 @@ public class HexGrid : MonoBehaviour {
 		attackText = GameObject.Find("AttackText").GetComponent<Text>();
 		healthText = GameObject.Find("HealthText").GetComponent<Text>();
 		reachText = GameObject.Find("ReachText").GetComponent<Text>();
-		enemyText = GameObject.Find("EnemyText").GetComponent<Text>();	
+		enemyText = GameObject.Find("EnemyText").GetComponent<Text>();
 		gameState = new GameState();
 		gameState.setup();
 		attackText.text = gameState.levelStarter.attack.ToString();
@@ -54,6 +57,8 @@ public class HexGrid : MonoBehaviour {
 				CreateCell(x, z, i++);
 			}
 		}
+
+		musicPlayerScriptUsageTimeline = GameObject.Find("MusicPlayer").GetComponent<ScriptUsageTimeline>();
 	}
 
 	void Start () {
@@ -122,27 +127,36 @@ public class HexGrid : MonoBehaviour {
 	}
 
 	void Update () {
-		if (Input.GetMouseButtonDown(0) && !gameState.turnStarted) {
+		if (Input.GetMouseButtonDown(0)) {
 			if (CellClicked().playerCellStatus != PlayerCellStatus.NOTHING) {
-				gameState.turnStarted = true;
 				HighlightNeighbors();
 				HighlightFurthest(CellClicked());
 				RedrawBoard();
 			}
 		}
 
-		if (Input.GetMouseButton(0) && gameState.turnStarted) {
-			HandleInput();
-			HighlightFurthest(CellClicked());
+		if (Input.GetMouseButtonUp(0)) {
+			UnHighlightNeighbors();
 			RedrawBoard();
 		}
 
-		if (Input.GetMouseButtonUp(0) && gameState.turnStarted) {
-			DoFight();
-			gameState.turnStarted = false;
-			UnHighlightNeighbors();
-			gameState.grownTilesThisTurn = 0;
-			RearrangeOrgans();
+		// new turn strategy
+		if (previousBeat != musicPlayerScriptUsageTimeline.timelineInfo.currentMusicBeat) {
+			previousBeat = musicPlayerScriptUsageTimeline.timelineInfo.currentMusicBeat;
+			DoTurn();
+		}
+	}
+
+	void DoTurn() {
+		MovePlayer();
+		// MoveEnemies();
+		DoFight();
+	}
+
+	void MovePlayer() {
+		if (Input.GetMouseButton(0)) {
+			HandleInput();
+			HighlightFurthest(CellClicked());
 			RedrawBoard();
 		}
 	}
@@ -165,9 +179,6 @@ public class HexGrid : MonoBehaviour {
 	}
 
 	void HighlightFurthest(HexCell sourceCell) {
-		if (gameState.grownTilesThisTurn >= gameState.levelStarter.reach) {
-			return;
-		}
 		HexCell[] playerCells = Array.FindAll(cells, c => c.playerCellStatus != PlayerCellStatus.NOTHING);
 		int furthestDistance = 0;
 		HexCell furthestCell = null;
@@ -198,7 +209,7 @@ public class HexGrid : MonoBehaviour {
 
 		int index = coordinates.X + coordinates.Z * width + coordinates.Z / 2;
 		HexCell cell = cells[index];
-		if ((gameState.grownTilesThisTurn < gameState.levelStarter.reach) && (cell.playerCellStatus == PlayerCellStatus.NOTHING)) {
+		if (cell.playerCellStatus == PlayerCellStatus.NOTHING) {
 			// doublecheck if its neighbor or not (rapid mouse movement could cause issues)
 			for (int i = 0; i < 6; i++) {
 				HexCell neighbor = cell.GetNeighbor((HexDirection) i);
@@ -206,7 +217,6 @@ public class HexGrid : MonoBehaviour {
 				if ((neighbor != null) && (neighbor.playerCellStatus != PlayerCellStatus.NOTHING)) {
 					cell.color = touchedColor;
 					cell.playerCellStatus = PlayerCellStatus.PLAYER;
-					gameState.grownTilesThisTurn += 1;
 					RemoveFurthestCell();
 
 					if (cell.enemyCellStatus != EnemyCellStatus.NOTHING) {
@@ -326,5 +336,4 @@ public class HexGrid : MonoBehaviour {
 			cells[i].Distance = cell.coordinates.DistanceTo(cells[i].coordinates);
 		}
 	}
-
 }

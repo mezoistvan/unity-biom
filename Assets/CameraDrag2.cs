@@ -5,12 +5,12 @@ public class CameraDrag2: MonoBehaviour {
 	private Vector3 dragOrigin;
 
 	void Update() {
-		if (Input.GetMouseButtonDown(1)) {
+		if (Input.GetMouseButtonDown(0)) {
 			dragOrigin = Input.mousePosition;
 			return;
 		}
 
-		if (!Input.GetMouseButton(1)) {
+		if (!Input.GetMouseButton(0)) {
 			return;
 		}
 
